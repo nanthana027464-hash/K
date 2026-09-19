@@ -1,0 +1,131 @@
+-- โหลด Rayfield UI Library
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+-- บริการพื้นฐานของ Roblox
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local Workspace = game:GetService("Workspace")
+
+-- ตัวแปรควบคุมฟังก์ชันต่างๆ
+local walkSpeedValue = 16
+local fastPickup = false
+local autoFlyEgg = false
+local selectedEgg = "Common Egg" -- ค่าเริ่มต้นของประเภทไข่ที่เลือก
+
+-- สร้าง Window
+local Window = Rayfield:CreateWindow({
+   Name = "Egg Collector Hub",
+   LoadingTitle = "Loading Script...",
+   LoadingSubtitle = "by Assistant",
+   ConfigurationSaving = {
+      Enabled = false,
+   },
+   Discord = {
+      Enabled = false,
+   },
+   KeySystem = false
+})
+
+-- ==================== TAB 1: PLAYER CONTROL ====================
+local PlayerTab = Window:CreateTab("Player", 4483362458)
+
+-- Slider ปรับความเร็ววิ่ง
+local SpeedSlider = PlayerTab:CreateSlider({
+   Name = "Walk Speed (ความเร็ววิ่ง)",
+   Range = {16, 250},
+   Increment = 1,
+   Suffix = "Speed",
+   CurrentValue = 16,
+   Flag = "SpeedSlider",
+   Callback = function(Value)
+      walkSpeedValue = Value
+      if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+         LocalPlayer.Character.Humanoid.WalkSpeed = Value
+      end
+   end,
+})
+
+-- ตรวจจับเวลาตัวละครเกิดใหม่ ให้คงค่าความเร็วไว้
+LocalPlayer.CharacterAdded:Connect(function(char)
+   local humanoid = char:WaitForChild("Humanoid", 5)
+   if humanoid then
+      humanoid.WalkSpeed = walkSpeedValue
+   end
+end)
+
+-- ==================== TAB 2: EGG FARMING ====================
+local EggTab = Window:CreateTab("Egg Farm", 4483362458)
+
+-- Dropdown เลือกประเภทไข่
+local EggDropdown = EggTab:CreateDropdown({
+   Name = "Select Egg Type (เลือกไข่)",
+   Options = {"Common Egg", "Uncommon Egg", "Rare Egg", "Legendary Egg"},
+   CurrentOption = {"Common Egg"},
+   MultipleOptions = false,
+   Flag = "EggDropdown",
+   Callback = function(Options)
+      selectedEgg = Options[1]
+   end,
+})
+
+-- Toggle หยิบไข่ไว (เร่งช่วงเวลาการจับ ProximityPrompt)
+local PickupToggle = EggTab:CreateToggle({
+   Name = "Fast Pickup (หยิบไข่ไว)",
+   CurrentValue = false,
+   Flag = "PickupToggle",
+   Callback = function(Value)
+      fastPickup = Value
+      task.spawn(function()
+         while fastPickup do
+            for _, prompt in pairs(Workspace:GetDescendants()) do
+               if prompt:IsA("ProximityPrompt") then
+                  prompt.HoldDuration = 0 -- ทำให้ไม่ต้องกดค้าง หยิบได้ทันที
+               end
+            end
+            task.wait(1)
+         end
+      end)
+   end,
+})
+
+-- Toggle ออโต้บินไปเก็บไข่ที่เลือก
+local FlyEggToggle = EggTab:CreateToggle({
+   Name = "Auto Fly To Egg (ออโต้บินเก็บไข่)",
+   CurrentValue = false,
+   Flag = "FlyEggToggle",
+   Callback = function(Value)
+      autoFlyEgg = Value
+      
+      if autoFlyEgg then
+         task.spawn(function()
+            while autoFlyEgg do
+               local char = LocalPlayer.Character
+               local root = char and char:FindFirstChild("HumanoidRootPart")
+               
+               if root then
+                  -- ค้นหาโมเดลไข่ตามชื่อที่เลือกไว้ใน Workspace
+                  for _, obj in pairs(Workspace:GetDescendants()) do
+                     if not autoFlyEgg then break end
+                     
+                     if obj.Name == selectedEgg and (obj:IsA("BasePart") or obj:IsA("Model")) then
+                        local targetCFrame
+                        if obj:IsA("Model") and obj.PrimaryPart then
+                           targetCFrame = obj.PrimaryPart.CFrame
+                        elseif obj:IsA("BasePart") then
+                           targetCFrame = obj.CFrame
+                        end
+                        
+                        -- บิน/วาร์ปไปตำแหน่งเหนือไข่เล็กน้อย
+                        if targetCFrame then
+                           root.CFrame = targetCFrame * CFrame.new(0, 3, 0)
+                           task.wait(0.3) -- หน่วงเวลาเก็บ
+                        end
+                     end
+                  end
+               end
+               task.wait(0.5)
+            end
+         end)
+      end
+   end,
+})
